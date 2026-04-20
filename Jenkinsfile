@@ -19,7 +19,12 @@ pipeline {
                 sh 'docker-compose up -d'
                 sh 'sleep 10'
                 sh 'docker-compose exec -T backend python -m pytest || true'
-                sh 'docker-compose down'
+            }
+        }
+
+        stage('E2E Test') {
+            steps {
+                sh 'cd frontend && npm install && npx playwright install && npx playwright test auth.spec.js || true'
             }
         }
 
