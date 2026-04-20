@@ -1,6 +1,6 @@
 import os
 import json
-from fastapi import FastAPI, HTTPException, Depends, Security, Header
+from fastapi import FastAPI, HTTPException, Depends, Security, Header, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -10,7 +10,7 @@ from google import genai
 from sqlalchemy import or_, func
 from sqlalchemy.orm import Session, joinedload
 from database import get_db
-from models import Product, Customer, ProductVariant, GlobalFeedback, OrderItem, InventoryAlert
+from models import Product, Customer, ProductVariant, GlobalFeedback, OrderItem, InventoryAlert, SeasonalEvent
 from datetime import datetime, timedelta
 import bcrypt
 from jose import JWTError, jwt
@@ -101,6 +101,14 @@ class AlertCreate(BaseModel):
     product_name: Optional[str] = "Rapport Global"
     message: str
     alert_type: str = "low_stock"
+
+class AlertSeasonalItem(BaseModel):
+    image_url: Optional[str] = None
+    description: Optional[str] = None
+
+class AlertSeasonalCreate(BaseModel):
+    season_title: Optional[str] = "Saison"
+    items: List[AlertSeasonalItem] = []
 
 # Helper Functions
 def create_access_token(data: dict):
@@ -523,6 +531,126 @@ async def delete_variant(
     db.commit()
     return {"message": "Variante supprimée."}
 
+@app.post("/api/admin/alerts/seasonal")
+async def create_seasonal_alert(
+    request: Request,
+    x_agent_key: Optional[str] = Header(None, alias="X-Agent-Key"),
+    db: Session = Depends(get_db)
+):
+    # Security Check
+    agent_key = os.getenv("STOCK_AGENT_KEY")
+    if not x_agent_key or x_agent_key != agent_key:
+        raise HTTPException(status_code=403, detail="Clé agent invalide.")
+
+    try:
+        raw_body = await request.body()
+        body_text = raw_body.decode("utf-8")
+        print(f"📦 [RAW DEBUG] Corps reçu de n8n : '{body_text}'")
+        
+        if not body_text.strip():
+            raise Exception("Corps de requête vide.")
+            
+        data_dict = json.loads(body_text)
+    except Exception as e:
+        print(f"❌ [ERROR] Erreur de lecture/parse : {e}")
+        # Show what was actually received in the error message for the user
+        raise HTTPException(status_code=400, detail=f"Données illisibles. Reçu: '{body_text if 'body_text' in locals() else 'N/A'}'")
+
+    # DIAGNOSTIC: Print the received data to console
+    print(f"📦 [DEBUG] Brute de n8n: {data_dict}")
+
+    title = data_dict.get("season_title", "Saison Anticipée")
+    items_in = data_dict.get("items", [])
+    
+    # Create or Update the alert record
+    existing = db.query(InventoryAlert).filter(
+        InventoryAlert.alert_type == "seasonal_forecast",
+        InventoryAlert.product_name == title
+    ).first()
+
+    items_list = []
+    if isinstance(items_in, list):
+        items_list = items_in
+    elif isinstance(items_in, dict):
+        items_list = [items_in]
+
+    if existing:
+        metadata = dict(existing.metadata_info)
+        current_items = metadata.get("items", [])
+        existing_urls = {it.get('image_url') for it in current_items if it.get('image_url')}
+        
+        for new_it in items_list:
+            if new_it.get('image_url') not in existing_urls:
+                current_items.append(new_it)
+        
+        metadata["items"] = current_items
+        existing.metadata_info = metadata
+        db.add(existing)
+        target_id = existing.id
+    else:
+        new_alert = InventoryAlert(
+            product_name=title,
+            message=f"Anticipation saisonnière : {title}",
+            alert_type="seasonal_forecast",
+            metadata_info={
+                "season_title": title,
+                "items": items_list
+            },
+            is_read=False
+        )
+        db.add(new_alert)
+        db.flush()
+        target_id = new_alert.id
+    
+    db.commit()
+    return {"status": "success", "id": target_id}
+
+@app.post("/api/admin/events/seasonal")
+async def update_seasonal_events(
+    request: Request,
+    x_agent_key: Optional[str] = Header(None, alias="X-Agent-Key"),
+    db: Session = Depends(get_db)
+):
+    # Security Check
+    agent_key = os.getenv("STOCK_AGENT_KEY")
+    if not x_agent_key or x_agent_key != agent_key:
+        raise HTTPException(status_code=403, detail="Clé agent invalide.")
+
+    try:
+        data = await request.json()
+        # Data can be a single dict or a list of dicts
+        events_list = data if isinstance(data, list) else [data]
+        
+        # Clear existing events for a fresh start (common for seasonal banners)
+        db.query(SeasonalEvent).delete()
+        
+        for ev in events_list:
+            new_event = SeasonalEvent(
+                event_name=ev.get("evenement"),
+                event_date=ev.get("data"),
+                countdown=ev.get("compte_a_rebours"),
+                image_url=ev.get("image_illustration")
+            )
+            db.add(new_event)
+        
+        db.commit()
+        return {"status": "success", "count": len(events_list)}
+    except Exception as e:
+        db.rollback()
+        print(f"❌ [ERROR] Seasonal Event Update: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/api/admin/events/seasonal")
+async def get_seasonal_events(db: Session = Depends(get_db)):
+    events = db.query(SeasonalEvent).order_by(SeasonalEvent.id).all()
+    return [{
+        "id": e.id,
+        "evenement": e.event_name,
+        "data": e.event_date,
+        "compte_a_rebours": e.countdown,
+        "image_illustration": e.image_url
+    } for e in events]
+
 class ProductVariantInput(BaseModel):
     size: str
     stock: int
@@ -573,14 +701,18 @@ async def create_product(
         raise HTTPException(status_code=403, detail="Accès réservé.")
     
     try:
+        attrs = data.attributes or {}
+        if data.description:
+            attrs["admin_prompt"] = data.description
+
         new_p = Product(
             name=data.name, 
             brand=data.brand,
-            description=data.description,
+            description="",
             category=data.category,
             gender=data.gender,
             image_url=data.image_url,
-            attributes=data.attributes
+            attributes=attrs
         )
         db.add(new_p)
         db.commit()
@@ -590,6 +722,7 @@ async def create_product(
         # --- GENERATION DES EMBEDDINGS (VECTEUR IA) pour Synchronisation ---
         try:
             # On utilise le nouveau modèle Gemini 2.0 Native Embedding (3072 dims)
+            text_to_embed = f"{data.name} {data.brand or ''} {data.category or ''} {data.description or ''}"
             emb_res = client.models.embed_content(
                 model="models/gemini-embedding-2-preview",
                 contents=text_to_embed
@@ -1049,19 +1182,55 @@ async def get_inventory(db: Session = Depends(get_db)):
 
 @app.post("/api/admin/alerts")
 async def create_alert(alert: AlertCreate, x_api_key: str = Header(None), db: Session = Depends(get_db)):
-    log_msg = f"\n[ALERT] Received: {alert.product_name} | Type: {alert.alert_type} | Msg Len: {len(alert.message)}"
+    log_msg = f"\n[ALERT] Received: {alert.product_name} | Msg Len: {len(alert.message)}"
     with open("alerts_debug.log", "a", encoding="utf-8") as f:
         f.write(log_msg + "\n")
 
     if x_api_key != os.getenv("STOCK_AGENT_KEY"):
         return {"status": "error", "message": "Invalid API Key"}
-    
+
+    # --- NEW: Check if message is the structured n8n JSON format ---
+    try:
+        clean_msg = alert.message.strip()
+        if clean_msg.startswith("```json"):
+            clean_msg = clean_msg[7:-3].strip()
+        elif clean_msg.startswith("```"):
+            clean_msg = clean_msg[3:-3].strip()
+            
+        data = json.loads(clean_msg)
+        if "alertes" in data:
+            with open("alerts_debug.log", "a", encoding="utf-8") as f:
+                f.write(f"DEBUG: Found structured n8n JSON with {len(data['alertes'])} alertes.\n")
+            created_ids = []
+            for item in data["alertes"]:
+                # Map categories: URGENCE -> out_of_stock, CRITIQUE -> low_stock
+                cat = item.get("categorie", "CRITIQUE").upper()
+                mapped_type = "out_of_stock" if cat == "URGENCE" else "low_stock"
+                
+                # We store the extra structured info in metadata_info
+                new_sa = InventoryAlert(
+                    product_name=item.get("produit", "GÉNÉRAL"),
+                    message=f"{item.get('details', '')} | {item.get('analyse_financiere', '')}",
+                    alert_type=mapped_type,
+                    metadata_info=item # Store the whole object for frontend richness
+                )
+                db.add(new_sa)
+                db.flush()
+                created_ids.append(new_sa.id)
+            
+            db.commit()
+            return {"status": "success", "count": len(created_ids), "ids": created_ids, "format": "structured_n8n"}
+    except Exception as e:
+        # Not a structured JSON or parsing failed
+        with open("alerts_debug.log", "a", encoding="utf-8") as f:
+            f.write(f"DEBUG: Structured JSON check failed or skipped: {e}\n")
+        pass
+
     # Trigger AI only for reports or long unstructured texts
     is_report = alert.product_name == "Rapport Global" or "rapport" in alert.message.lower() or len(alert.message) > 200
     
     if is_report:
-        with open("alerts_debug.log", "a", encoding="utf-8") as f:
-            f.write("DEBUG: Triggering Gemini Parser...\n")
+        # ... (keep existing Gemini splitting logic as fallback)
         prompt = f"""
         Tu es un expert en logistique et gestion de stock. Analyse ce rapport et décompose-le en alertes individuelles.
         Rapport : {alert.message}
@@ -1076,43 +1245,37 @@ async def create_alert(alert: AlertCreate, x_api_key: str = Header(None), db: Se
           {{"product_name": "NOM DU PRODUIT ou GÉNÉRAL", "message": "Description courte", "alert_type": "out_of_stock | low_stock | seasonal"}}
         ]
         """
-        models_to_try = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"]
-        success = False
+        models_to_try = ["gemini-2.5-flash", "gemini-2.0-flash", "models/gemini-1.5-flash"]
         for model_name in models_to_try:
             try:
-                with open("alerts_debug.log", "a", encoding="utf-8") as f:
-                    f.write(f"DEBUG: Attempting model '{model_name}'...\n")
                 response = client.models.generate_content(
                     model=model_name,
                     contents=prompt,
-                    config=genai.types.GenerateContentConfig(response_mime_type="application/json")
+                    config={"response_mime_type": "application/json"}
                 )
-                sub_alerts = json.loads(response.text)
-                
+                text_clean = response.text.strip()
+                if text_clean.startswith("```json"):
+                    text_clean = text_clean[7:-3].strip()
+                elif text_clean.startswith("```"):
+                    text_clean = text_clean[3:-3].strip()
+                    
+                sub_alerts = json.loads(text_clean)
                 created_ids = []
                 for sa in sub_alerts:
                     new_sa = InventoryAlert(
                         product_name=sa.get("product_name", "GÉNÉRAL"),
-                        message=sa.get("message", ""),
-                        alert_type=sa.get("alert_type", "low_stock")
+                        message=sa.get("message", "Détail non disponible"),
+                        alert_type=sa.get("alert_type", alert.alert_type)
                     )
                     db.add(new_sa)
                     db.flush()
                     created_ids.append(new_sa.id)
-                
                 db.commit()
-                with open("alerts_debug.log", "a", encoding="utf-8") as f:
-                    f.write(f"DEBUG: Success with '{model_name}'. Created {len(created_ids)} sub-alerts.\n")
                 return {"status": "success", "count": len(created_ids), "ids": created_ids}
-            except Exception as e:
-                with open("alerts_debug.log", "a", encoding="utf-8") as f:
-                    f.write(f"DEBUG: Model '{model_name}' failed: {e}\n")
+            except:
                 continue
-        
-        with open("alerts_debug.log", "a", encoding="utf-8") as f:
-            f.write("ERROR: All Gemini models failed.\n")
-    
-    # Fallback or Single Alert
+
+    # Absolute Fallback
     new_alert = InventoryAlert(
         product_name=alert.product_name,
         message=alert.message,
@@ -1120,19 +1283,46 @@ async def create_alert(alert: AlertCreate, x_api_key: str = Header(None), db: Se
     )
     db.add(new_alert)
     db.commit()
-    db.refresh(new_alert)
-    with open("alerts_debug.log", "a", encoding="utf-8") as f:
-        f.write(f"DEBUG: Single alert saved ID={new_alert.id} Type={new_alert.alert_type}\n")
     return {"status": "success", "id": new_alert.id}
 
 @app.get("/api/admin/alerts")
 async def get_alerts(db: Session = Depends(get_db)):
     alerts = db.query(InventoryAlert).order_by(InventoryAlert.created_at.desc()).limit(50).all()
-    # Let's attach images by searching for product names
     result = []
     for a in alerts:
-        # Search for product to get image
-        p = db.query(Product).filter(Product.name.ilike(f"%{a.product_name}%")).first()
+        # SMART SEARCH: Find product to get image
+        p = None
+        # 1. Try exact match on product_name
+        p = db.query(Product).filter(Product.name == a.product_name).first()
+        
+        # 2. Try handling "Brand - Product" format from n8n
+        if not p and " - " in a.product_name:
+            parts = a.product_name.split(" - ", 1)
+            brand_part = parts[0].strip()
+            name_part = parts[1].strip()
+            
+            # Try searching for the name part
+            p = db.query(Product).filter(Product.name.ilike(f"%{name_part}%")).first()
+            if not p:
+                # Try searching for both name and brand if possible
+                p = db.query(Product).filter(
+                    Product.name.ilike(f"%{name_part}%"),
+                    Product.brand.ilike(f"%{brand_part}%")
+                ).first()
+
+        # 3. Try fallback search on the whole string
+        if not p:
+            p = db.query(Product).filter(Product.name.ilike(f"%{a.product_name}%")).first()
+
+        # 4. Try SKU matching if available in metadata
+        if not p and a.metadata_info and "details" in a.metadata_info:
+            details = a.metadata_info.get("details", "")
+            if "Réf :" in details:
+                sku = details.split("Réf :")[1].strip()
+                v = db.query(ProductVariant).filter(ProductVariant.sku == sku).first()
+                if v:
+                    p = v.product
+
         result.append({
             "id": a.id,
             "product_name": a.product_name,
@@ -1141,7 +1331,8 @@ async def get_alerts(db: Session = Depends(get_db)):
             "is_read": a.is_read,
             "created_at": a.created_at,
             "image_url": p.image_url if p else None,
-            "product_id": p.id if p else None
+            "product_id": p.id if p else None,
+            "metadata": a.metadata_info
         })
     return result
 

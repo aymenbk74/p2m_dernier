@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { AILuxuryAlerts } from './AILuxuryAlerts';
 import { Navbar, Footer } from './HomeLayout';
 import CONFIG from '../config';
 import BackgroundSlideshow from './BackgroundSlideshow';
+import SeasonalAnticipation from './SeasonalAnticipation';
+import SeasonalTimeline from './SeasonalTimeline';
 
 const adminSlides = [
     { id: 1, image: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1400" },
@@ -78,6 +81,7 @@ const AdminDashboard = ({ onLogout }) => {
     const [alerts, setAlerts] = useState([]);
     const [unreadCount, setUnreadCount] = useState(0);
     const [activeAlertCategory, setActiveAlertCategory] = useState(0); // 0: Ruptures, 1: Stocks Bas, 2: Historique
+    const [seasonalEvents, setSeasonalEvents] = useState([]);
 
     const selectedProduct = inventory.find(p => p.id === selectedProductId);
 
@@ -128,6 +132,7 @@ const AdminDashboard = ({ onLogout }) => {
 
             // Fetch Alerts separately (optional but good)
             await fetchAlerts();
+            await fetchSeasonalEvents();
 
         } catch (err) {
             console.error("Erreur générale admin:", err);
@@ -152,9 +157,21 @@ const AdminDashboard = ({ onLogout }) => {
         }
     };
 
+    const fetchSeasonalEvents = async () => {
+        try {
+            const res = await fetch(`${CONFIG.API_BASE_URL}/api/admin/events/seasonal`);
+            if (res.ok) {
+                const data = await res.json();
+                setSeasonalEvents(data);
+            }
+        } catch (err) {
+            console.error("Erreur fetch seasonal events:", err);
+        }
+    };
+
     const urgentCount = alerts.filter(a => a.alert_type === 'out_of_stock' && !a.is_read).length;
     const warningCount = alerts.filter(a => a.alert_type === 'low_stock' && !a.is_read).length;
-    const seasonalCount = alerts.filter(a => a.alert_type === 'seasonal' && !a.is_read).length;
+    const seasonalCount = alerts.filter(a => a.alert_type === 'seasonal_forecast' && !a.is_read).length;
 
     const markAlertAsRead = async (id) => {
         const token = localStorage.getItem('token');
@@ -177,7 +194,7 @@ const AdminDashboard = ({ onLogout }) => {
             // but for performance a bulk endpoint is better.
             // Let's assume I'll add a bulk endpoint or just loop.
             const unread = alerts.filter(a => !a.is_read);
-            await Promise.all(unread.map(a => 
+            await Promise.all(unread.map(a =>
                 fetch(`${CONFIG.API_BASE_URL}/api/admin/alerts/${a.id}/read`, {
                     method: 'PATCH',
                     headers: { 'Authorization': `Bearer ${token}` }
@@ -466,6 +483,8 @@ const AdminDashboard = ({ onLogout }) => {
                 <nav style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     {[
                         { id: 'overview', label: "VUE D'ENSEMBLE", icon: "📊" },
+                        { id: 'forecast_season', label: "ANTICIPATION SAISON", icon: "🌸" },
+                        { id: 'forecast_events', label: "ANTICIPATION ÉVÉNEMENTS", icon: "⚡", badge: seasonalCount },
                         { id: 'reports', label: "RAPPORTS", icon: "📈" },
                         { id: 'customers', label: "CLIENTS", icon: "👥" },
                         { id: 'orders', label: "COMMANDES", icon: "📦" },
@@ -475,7 +494,13 @@ const AdminDashboard = ({ onLogout }) => {
                     ].map(tab => (
                         <button
                             key={tab.id}
-                            onClick={() => setActiveTab(tab.id)}
+                            onClick={() => {
+                                setActiveTab(tab.id);
+                                if (tab.id === 'forecast_events') {
+                                    const seasonalUnread = alerts.filter(a => a.alert_type === 'seasonal_forecast' && !a.is_read);
+                                    seasonalUnread.forEach(a => markAlertAsRead(a.id));
+                                }
+                            }}
                             style={{
                                 background: activeTab === tab.id ? 'linear-gradient(90deg, rgba(197, 160, 89, 0.15), transparent)' : 'transparent',
                                 border: 'none', color: activeTab === tab.id ? '#c5a059' : 'rgba(255,255,255,0.45)',
@@ -525,6 +550,8 @@ const AdminDashboard = ({ onLogout }) => {
                         <div style={{ color: '#c5a059', fontSize: '0.65rem', letterSpacing: '5px', fontWeight: 'bold', marginBottom: '10px', opacity: 0.8 }}>ESPACE DE GESTION</div>
                         <h2 style={{ fontSize: '2.4rem', fontFamily: "'Playfair Display', serif", fontWeight: '300', letterSpacing: '-0.5px' }}>
                             {activeTab === 'overview' && "Tableau de Bord"}
+                            {activeTab === 'forecast_season' && "Anticipation Saisonnière"}
+                            {activeTab === 'forecast_events' && "Anticipation Événements"}
                             {activeTab === 'reports' && "Rapports de Performance"}
                             {activeTab === 'customers' && "Gestion Clientèle"}
                             {activeTab === 'orders' && "Suivi Commandes"}
@@ -990,176 +1017,51 @@ const AdminDashboard = ({ onLogout }) => {
 
                     {
                         activeTab === 'feedbacks' && (
-                            <div className="glass-card">
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px' }}>
-                                    <h3 style={{ fontSize: '1.6rem', fontWeight: '300', margin: 0 }}>AVIS & RETOURS STUDIO</h3>
-                                    {feedbacks.length > 0 && (
-                                        <div style={{ textAlign: 'right' }}>
-                                            <div style={{ fontSize: '2.5rem', color: '#c5a059', lineHeight: 1 }}>
-                                                {(feedbacks.reduce((acc, f) => acc + f.rating, 0) / feedbacks.length).toFixed(1)} <span style={{ fontSize: '1rem', opacity: 0.5 }}>/ 5</span>
-                                            </div>
-                                            <div style={{ color: '#c5a059', letterSpacing: '2px', fontSize: '1rem' }}>
-                                                {'★'.repeat(Math.round(feedbacks.reduce((acc, f) => acc + f.rating, 0) / feedbacks.length))}
-                                                <span style={{ opacity: 0.3 }}>{'★'.repeat(5 - Math.round(feedbacks.reduce((acc, f) => acc + f.rating, 0) / feedbacks.length))}</span>
-                                            </div>
-                                            <div style={{ fontSize: '0.65rem', opacity: 0.5, marginTop: '5px' }}>NOTE GLOBALE</div>
-                                        </div>
-                                    )}
-                                </div>
-                                <div style={{ maxHeight: '60vh', overflowY: 'auto', paddingRight: '15px' }} className="custom-scroll">
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                                        {feedbacks.length > 0 ? feedbacks.map((f) => (
-                                            <div key={f.id} style={{ background: 'rgba(255,255,255,0.02)', padding: '30px', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.04)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                                <div style={{ flex: 1 }}>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '15px' }}>
-                                                        <div style={{ color: '#c5a059', letterSpacing: '2px', fontSize: '1.2rem' }}>{'★'.repeat(f.rating)}</div>
-                                                        <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem' }}>• {f.date}</span>
-                                                    </div>
-                                                    <p style={{ fontSize: '1.1rem', fontStyle: 'italic', margin: '0 0 15px 0', lineHeight: '1.6', opacity: 0.9 }}>"{f.comment}"</p>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                        <span style={{ fontWeight: 'bold', textTransform: 'uppercase', fontSize: '0.8rem' }}>{f.user_name}</span>
-                                                        <span style={{ opacity: 0.3, fontSize: '0.7rem' }}>({f.user_email})</span>
-                                                    </div>
-                                                </div>
-                                                <button
-                                                    onClick={() => deleteFeedback(f.id)}
-                                                    style={{ background: 'none', border: 'none', color: '#ff4444', fontSize: '0.7rem', cursor: 'pointer', opacity: 0.4, padding: '10px' }}
-                                                >SUPPRIMER L'AVIS</button>
-                                            </div>
-                                        )) : (
-                                            <div style={{ textAlign: 'center', padding: '100px', opacity: 0.3 }}>
-                                                <div style={{ fontSize: '3rem', marginBottom: '20px' }}>💬</div>
-                                                <p>AUCUN RETOUR CLIENT POUR LE MOMENT</p>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
+                            <AdminFeedbackManager />
                         )
                     }
 
                     {
                         activeTab === 'alerts' && (
-                            <div style={{ animation: 'fadeIn 0.5s ease-out' }}>
-                                {/* Modern Header & Stats Bar */}
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '30px' }}>
-                                    <div>
-                                        <h2 style={{ fontSize: '2.5rem', fontWeight: '200', margin: 0, fontFamily: "'Playfair Display', serif" }}>PANORAMA DES ALERTES</h2>
-                                        <p style={{ color: '#c5a059', letterSpacing: '3px', fontSize: '0.7rem', fontWeight: 'bold' }}>NAVIGATION INTERACTIVE IA</p>
-                                    </div>
-                                    <div style={{ display: 'flex', gap: '20px' }}>
-                                        <button onClick={markAllAlertsAsRead} disabled={unreadCount === 0} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', padding: '12px 25px', borderRadius: '12px', cursor: 'pointer', fontSize: '0.75rem', opacity: unreadCount === 0 ? 0.3 : 1 }}>MARQUER TOUT LU</button>
-                                        <button onClick={fetchAlerts} style={{ background: '#c5a059', border: 'none', color: 'black', padding: '12px 30px', borderRadius: '12px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>ACTUALISER</button>
-                                    </div>
-                                </div>
-
-                                {/* Sliding Window Tabs */}
-                                <div style={{ display: 'flex', gap: '40px', marginBottom: '40px', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '15px' }}>
-                                    {[
-                                        { id: 0, label: 'RUPTURES CRITIQUES', color: '#ff4444', count: urgentCount },
-                                        { id: 1, label: 'STOCKS FAIBLES', color: '#ffbb33', count: warningCount },
-                                        { id: 2, label: 'TENDANCES & SAISONS', color: '#ace1af', count: seasonalCount },
-                                        { id: 3, label: 'HISTORIQUE TRAITÉ', color: '#c5a059', count: alerts.filter(a => a.is_read).length }
-                                    ].map((cat) => (
-                                        <div 
-                                            key={cat.id}
-                                            onClick={() => setActiveAlertCategory(cat.id)}
-                                            style={{ 
-                                                cursor: 'pointer',
-                                                padding: '10px 0',
-                                                position: 'relative',
-                                                transition: '0.3s',
-                                                opacity: activeAlertCategory === cat.id ? 1 : 0.4
-                                            }}
-                                        >
-                                            <span style={{ fontSize: '0.75rem', fontWeight: '900', letterSpacing: '2px', color: activeAlertCategory === cat.id ? cat.color : 'white' }}>
-                                                {cat.label}
-                                                <span style={{ marginLeft: '10px', fontSize: '0.6rem', background: 'rgba(255,255,255,0.1)', padding: '2px 8px', borderRadius: '100px' }}>{cat.count}</span>
-                                            </span>
-                                            {activeAlertCategory === cat.id && (
-                                                <div style={{ 
-                                                    position: 'absolute', bottom: '-2px', left: 0, right: 0, height: '2px', 
-                                                    background: cat.color, boxShadow: `0 0 15px ${cat.color}`
-                                                }}></div>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
-                                
-                                {/* Sliding Windows Deck */}
-                                <div style={{ overflow: 'hidden', position: 'relative', height: '65vh', borderRadius: '30px' }}>
-                                    <div style={{ 
-                                        display: 'flex', 
-                                        transition: 'transform 0.8s cubic-bezier(0.19, 1, 0.22, 1)',
-                                        transform: `translateX(-${activeAlertCategory * 100}%)`,
-                                        height: '100%'
-                                    }}>
-                                        {[
-                                            { type: 'out_of_stock', items: alerts.filter(a => a.alert_type === 'out_of_stock' && !a.is_read), title: 'URGENCES ABSOLUES', color: '#ff4444' },
-                                            { type: 'low_stock', items: alerts.filter(a => a.alert_type === 'low_stock' && !a.is_read), title: 'PRÉVENTION STOCK', color: '#ffbb33' },
-                                            { type: 'seasonal', items: alerts.filter(a => a.alert_type === 'seasonal' && !a.is_read), title: 'STRATÉGIE SAISONNIÈRE', color: '#ace1af' },
-                                            { type: 'all', items: alerts.filter(a => a.is_read), title: 'ARCHIVES IA', color: '#c5a059' }
-                                        ].map((pane, idx) => (
-                                            <div key={idx} style={{ minWidth: '100%', padding: '0 5px' }}>
-                                                <div style={{ 
-                                                    display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))', gap: '30px', 
-                                                    height: '100%', overflowY: 'auto', paddingRight: '15px' 
-                                                }} className="custom-scroll">
-                                                    {pane.items.length > 0 ? pane.items.map((a) => (
-                                                        <div key={a.id} className="glass-card" style={{ 
-                                                            padding: 0, borderRadius: '24px', overflow: 'hidden', position: 'relative',
-                                                            background: 'rgba(0,0,0,0.5)', border: `1px solid ${activeAlertCategory === idx ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.03)'}`,
-                                                            transition: '0.4s'
-                                                        }}>
-                                                            <div style={{ display: 'flex', height: '220px' }}>
-                                                                {/* Product Side Visual */}
-                                                                <div style={{ width: '40%', position: 'relative', overflow: 'hidden' }}>
-                                                                    {a.image_url ? (
-                                                                        <img src={a.image_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
-                                                                    ) : (
-                                                                        <div style={{ width: '100%', height: '100%', background: '#111', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>📦</div>
-                                                                    )}
-                                                                    <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, transparent, rgba(0,0,0,0.8))' }}></div>
-                                                                </div>
-
-                                                                {/* Content Area */}
-                                                                <div style={{ width: '60%', padding: '30px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                                                                    <div style={{ fontSize: '0.6rem', letterSpacing: '3px', color: pane.color, fontWeight: 'bold', marginBottom: '10px' }}>{pane.title}</div>
-                                                                    <h4 style={{ margin: '0 0 10px 0', fontSize: '1.2rem', fontFamily: "'Playfair Display', serif" }}>{a.product_name.toUpperCase()}</h4>
-                                                                    <p style={{ margin: '0 0 20px 0', fontSize: '0.8rem', opacity: 0.6, lineHeight: '1.6' }}>{a.message}</p>
-                                                                    
-                                                                    <div style={{ display: 'flex', gap: '15px' }}>
-                                                                        {a.product_id && (
-                                                                            <button 
-                                                                                onClick={() => setSelectedProductId(a.product_id)}
-                                                                                style={{ flex: 1, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', padding: '10px', borderRadius: '10px', fontSize: '0.65rem', fontWeight: 'bold', cursor: 'pointer' }}
-                                                                            >STUDIO</button>
-                                                                        )}
-                                                                        {!a.is_read && (
-                                                                            <button 
-                                                                                onClick={() => markAlertAsRead(a.id)}
-                                                                                style={{ flex: 1, background: pane.color, border: 'none', color: 'black', padding: '10px', borderRadius: '10px', fontSize: '0.65rem', fontWeight: 'bold', cursor: 'pointer' }}
-                                                                            >RÉGLÉ</button>
-                                                                        )}
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    )) : (
-                                                        <div style={{ textAlign: 'center', padding: '100px 0', opacity: 0.1 }}>
-                                                            <div style={{ fontSize: '5rem' }}>✨</div>
-                                                            <p style={{ letterSpacing: '5px', fontSize: '0.8rem' }}>AUCUNE ALERTE DANS CETTE SECTION</p>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
+                            <AILuxuryAlerts 
+                                alerts={alerts} 
+                                markAllAlertsAsRead={markAllAlertsAsRead} 
+                                fetchAlerts={fetchAlerts} 
+                                unreadCount={unreadCount} 
+                                markAlertAsRead={markAlertAsRead} 
+                                setSelectedProductId={setSelectedProductId} 
+                            />
                         )
                     }
-                </div >
+
+                    {/* TAB: ANTICIPATION SAISON */}
+                    {activeTab === 'forecast_season' && (
+                        <div className="reveal">
+                            <div style={{ marginBottom: '40px', borderBottom: '1px solid rgba(197, 160, 89, 0.1)', paddingBottom: '20px' }}>
+                                <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: '2.5rem', margin: 0, color: 'white' }}>ANTICIPATION SAISONNIÈRE</h1>
+                                <p style={{ color: '#c5a059', letterSpacing: '3px', fontSize: '0.8rem', marginTop: '10px', fontWeight: 'bold' }}>RÉPONSE OPÉRATIONNELLE ET TENDANCES DES SAISONS</p>
+                            </div>
+                            <SeasonalAnticipation forecasts={alerts.filter(a => a.alert_type === 'seasonal_forecast')} />
+                        </div>
+                    )}
+
+                    {/* TAB: ANTICIPATION ÉVÉNEMENTS */}
+                    {activeTab === 'forecast_events' && (
+                        <div className="reveal">
+                            <div style={{ marginBottom: '40px', borderBottom: '1px solid rgba(197, 160, 89, 0.1)', paddingBottom: '20px' }}>
+                                <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: '2.5rem', margin: 0, color: 'white' }}>FEUILLE DE ROUTE STRATÉGIQUE</h1>
+                                <p style={{ color: '#c5a059', letterSpacing: '3px', fontSize: '0.8rem', marginTop: '10px', fontWeight: 'bold' }}>CHRONOLOGIE ET ANTICIPATION DES ÉVÉNEMENTS</p>
+                            </div>
+                            {seasonalEvents.length > 0 && (
+                                <SeasonalTimeline 
+                                    events={seasonalEvents} 
+                                    forecasts={alerts.filter(a => a.alert_type === 'seasonal_forecast')} 
+                                    inventory={inventory}
+                                />
+                            )}
+                        </div>
+                    )}
+                </div>
 
                 <footer style={{ padding: '60px', opacity: 0.3, textAlign: 'center', fontSize: '0.7rem', letterSpacing: '4px' }}>
                     SMARTSHOP STUDIO • SYSTÈME DE GESTION PRIVÉ • 2026
@@ -1314,8 +1216,8 @@ const IntelligentProductModal = ({ isOpen, onClose, onCreate, currentSlide }) =>
     const [price, setPrice] = useState("");
     const [brand, setBrand] = useState("");
     const [gender, setGender] = useState("");
-    const [attributes, setAttributes] = useState({}); 
-    const [variants, setVariants] = useState([]); 
+    const [attributes, setAttributes] = useState({});
+    const [variants, setVariants] = useState([]);
     const [imagePreview, setImagePreview] = useState(null);
     const [imageBase64, setImageBase64] = useState(null);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -1417,7 +1319,7 @@ const IntelligentProductModal = ({ isOpen, onClose, onCreate, currentSlide }) =>
                 },
                 body: JSON.stringify({ description: desc, image_base64: imageBase64 })
             });
-            
+
             if (res.status === 429) {
                 setAnalysisError("Quota épuisé (IA). Réessayez plus tard.");
                 return;
@@ -1432,7 +1334,7 @@ const IntelligentProductModal = ({ isOpen, onClose, onCreate, currentSlide }) =>
                 if (data.category && !category) { setCategory(data.category); filled.add('category'); }
                 if (data.price && !price) { setPrice(data.price.toString()); filled.add('price'); }
                 if (data.gender && !gender) { setGender(data.gender); filled.add('gender'); }
-                
+
                 if (data.extra_attributes) {
                     const newAttrs = { ...attributes };
                     Object.entries(data.extra_attributes).forEach(([key, val]) => {

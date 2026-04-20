@@ -114,5 +114,16 @@ class InventoryAlert(Base):
     product_name = Column(String(150))
     message = Column(Text, nullable=False)
     alert_type = Column(String(50), default="low_stock") # low_stock, out_of_stock, restock
+    metadata_info = Column(JSONB, default={}) # New: To store n8n structured details
     is_read = Column(Boolean, default=False)
+    created_at = Column(TIMESTAMP, server_default=func.now())
+
+class SeasonalEvent(Base):
+    __tablename__ = "seasonal_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    event_name = Column(String(100), nullable=False)
+    event_date = Column(String(50))
+    countdown = Column(String(50))
+    image_url = Column(Text)
     created_at = Column(TIMESTAMP, server_default=func.now())
