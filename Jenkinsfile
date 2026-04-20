@@ -24,7 +24,7 @@ pipeline {
 
         stage('E2E Test') {
             steps {
-                sh 'cd frontend && npm ci && npx playwright install --with-deps && npx playwright test auth.spec.js || true'
+                sh 'cd frontend && npm install && npx playwright install --with-deps && npx playwright test auth.spec.js || true'
             }
         }
 
