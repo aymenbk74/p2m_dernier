@@ -4,7 +4,7 @@ test('signup and login', async ({ page }) => {
   const email = `test.${Date.now()}@example.com`;
   const pwd = 'Password123!';
   
-  await page.goto('http://localhost:3000');
+  await page.goto('/');
   await page.fill('input[name="email"]', email);
   await page.fill('input[name="password"]', pwd);
   await page.fill('input[name="first_name"]', 'Test');
