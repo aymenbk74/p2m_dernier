@@ -41,5 +41,18 @@ services:
     environment:
       VITE_API_URL: http://backend:8000
 
+  # NEW SERVICE ADDED HERE
+  e2e:
+    image: mcr.microsoft.com/playwright:v1.43.0-jammy # Official image with browsers pre-installed
+    container_name: p2m_playwright
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+    depends_on:
+      - frontend
+    environment:
+      # Tell Playwright to look at the frontend container, not localhost
+      - PLAYWRIGHT_BASE_URL=http://frontend:3000
+
 volumes:
   postgres_data:
