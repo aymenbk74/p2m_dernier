@@ -32,8 +32,16 @@ pipeline {
                 sh 'sleep 15'
                 sh 'docker-compose ps'
                 
-                // Just run the test command! No bash or npm install needed here.
-                sh 'docker-compose run --rm e2e npx playwright test auth.spec.js'
+                // 1. Run the test WITHOUT --rm, give it a specific name, and use '|| true' 
+                // so a test failure doesn't stop the pipeline before we can copy the files!
+                sh 'docker-compose run --name e2e_test_container e2e npx playwright test auth.spec.js || true'
+                
+                // 2. Copy the test results and report from the stopped container back to Jenkins
+                sh 'docker cp e2e_test_container:/app/test-results ./frontend/ || true'
+                sh 'docker cp e2e_test_container:/app/playwright-report ./frontend/ || true'
+                
+                // 3. Now we can safely delete the container
+                sh 'docker rm e2e_test_container || true'
             }
         }
 
@@ -49,13 +57,10 @@ pipeline {
 
     post {
         always {
-            // 1. Save the Playwright screenshots and traces so you can download them!
-            archiveArtifacts artifacts: 'frontend/test-results/**/*', allowEmptyArchive: true
+            // Archive both the traces/screenshots and the HTML report
+            archiveArtifacts artifacts: 'frontend/test-results/**/*, frontend/playwright-report/**/*', allowEmptyArchive: true
             
-            // 2. Shut down docker
             sh 'docker-compose down --volumes || true'
-            
-            // 3. Clean up
             cleanWs()
         }
     }
