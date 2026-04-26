@@ -43,6 +43,17 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 app = FastAPI()
 
+from sqlalchemy import text
+from database import engine, Base
+
+# Enable pgvector
+with engine.connect() as conn:
+    conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+    conn.commit()
+
+# Create tables
+Base.metadata.create_all(bind=engine)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],

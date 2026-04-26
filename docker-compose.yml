@@ -1,8 +1,8 @@
 version: '3.8'
 
 services:
-  postgres:
-    image: postgres:16-alpine
+  db:
+    image: pgvector/pgvector:pg16
     container_name: p2m_db
     environment:
       POSTGRES_DB: p2m_ecommerce
@@ -23,15 +23,13 @@ services:
     container_name: p2m_backend
     ports:
       - "8000:8000"
-    environment:
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/p2m_ecommerce
-      SECRET_KEY: ${SECRET_KEY:-your-secret-key-change-me}
-    depends_on:
-      postgres:
-        condition: service_healthy
+    env_file:
+      - ./server/.env
     volumes:
       - ./server:/app
-    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    depends_on:
+      db:
+        condition: service_healthy
 
   frontend:
     build: ./frontend
