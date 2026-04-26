@@ -29,13 +29,11 @@ pipeline {
 
         stage('E2E Test') {
             steps {
-                // Wait briefly for React to finish building inside the container
                 sh 'sleep 15'
                 sh 'docker-compose ps'
                 
-                // Run the tests inside the dedicated Playwright container
-                // We use 'run --rm' so the container deletes itself after finishing
-                sh 'docker-compose run --rm e2e /bin/bash -c "npm install && npx playwright test auth.spec.js"'
+                // Just run the test command! No bash or npm install needed here.
+                sh 'docker-compose run --rm e2e npx playwright test auth.spec.js'
             }
         }
 

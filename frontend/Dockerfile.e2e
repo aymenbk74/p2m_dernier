@@ -1,0 +1,10 @@
+FROM mcr.microsoft.com/playwright:v1.43.0-jammy
+
+WORKDIR /app
+
+# Copy package files and install dependencies
+COPY package*.json ./
+RUN npm install
+
+# Copy the rest of the frontend code (including tests)
+COPY . .
