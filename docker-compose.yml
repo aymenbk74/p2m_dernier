@@ -48,6 +48,7 @@ services:
       container_name: p2m_playwright
       depends_on:
         - frontend
+        - backend
       environment:
         - PLAYWRIGHT_BASE_URL=http://frontend:3000
 
