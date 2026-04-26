@@ -20,7 +20,7 @@ test('signup and login', async ({ page }) => {
   await page.fill('input[name="country"]', 'Tunisia');
   
   // 4. Submit the signup form
-  await page.click('button:has-text("CONIFRMER L\'ADHÉSION")');
+  await page.click('button:has-text("CONFIRMER L\'ADHÉSION")');
   
   // Wait a moment for the backend to process the signup
   await page.waitForTimeout(2000);
