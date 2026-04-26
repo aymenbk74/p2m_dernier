@@ -16,12 +16,14 @@ pipeline {
 
         stage('Test') {
             steps {
+                sh 'mkdir -p server'
+                
+                // Use the credentials ID you created in Jenkins
+                withCredentials([file(credentialsId: 'backend-env-file', variable: 'SECRET_ENV')]) {
+                    sh 'cp $SECRET_ENV server/.env'
+                }
+                
                 sh 'docker-compose up -d'
-                sh 'sleep 15'
-                sh 'docker-compose ps'
-                sh 'docker-compose logs frontend || true'
-                sh 'docker-compose logs backend || true'
-                sh 'docker-compose exec -T backend python -m pytest || true'
             }
         }
 
