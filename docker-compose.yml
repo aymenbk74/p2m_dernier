@@ -32,14 +32,13 @@ services:
         condition: service_healthy
 
   frontend:
-    build: ./frontend
-    container_name: p2m_frontend
+    build:
+      context: ./frontend  # (or whatever your context path is)
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_BASE_URL=http://backend:8000  # Make sure 'backend' matches your backend service name!
     ports:
       - "3000:3000"
-    depends_on:
-      - backend
-    environment:
-      VITE_API_URL: http://backend:8000
 
   # NEW SERVICE ADDED HERE
   e2e:
