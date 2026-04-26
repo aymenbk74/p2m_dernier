@@ -49,7 +49,13 @@ pipeline {
 
     post {
         always {
+            // 1. Save the Playwright screenshots and traces so you can download them!
+            archiveArtifacts artifacts: 'frontend/test-results/**/*', allowEmptyArchive: true
+            
+            // 2. Shut down docker
             sh 'docker-compose down --volumes || true'
+            
+            // 3. Clean up
             cleanWs()
         }
     }
