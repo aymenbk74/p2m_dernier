@@ -17,9 +17,10 @@ test('signup and login', async ({ page }) => {
   await page.fill('input[name="first_name"]', 'Test');
   await page.selectOption('select[name="gender"]', 'F');
   await page.fill('input[name="age"]', '25');
+  await page.fill('input[name="country"]', 'Tunisia');
   
   // 4. Submit the signup form
-  await page.click('button:has-text("S\'INSCRIRE")');
+  await page.click('button:has-text("CONIFRMER L\'ADHÉSION")');
   
   // Wait a moment for the backend to process the signup
   await page.waitForTimeout(2000);
