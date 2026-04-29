@@ -17,13 +17,20 @@ pipeline {
         stage('Test') {
             steps {
                 sh 'mkdir -p server'
-                
-                // Use the credentials ID you created in Jenkins
                 withCredentials([file(credentialsId: 'backend-env-file', variable: 'SECRET_ENV')]) {
                     sh 'cp $SECRET_ENV server/.env'
                 }
                 
-                sh 'docker-compose up -d'
+                // Start ONLY the DB and Backend first
+                sh 'docker-compose up -d db backend frontend'
+                
+                // Wait specifically for the backend to be healthy (requires the healthcheck from my previous message)
+                // If you didn't add the healthcheck, use a slightly longer sleep for now, but healthchecks are best practice!
+                sh 'sleep 20' 
+                
+                // CRITICAL: Print the logs of the backend right before the test runs so you can see if it crashed!
+                sh 'docker-compose logs backend'
+                sh 'docker-compose ps'
             }
         }
 
