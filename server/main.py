@@ -43,6 +43,12 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 app = FastAPI()
 
+origins = [
+    "http://frontend:3000",
+    "http://localhost:3000", 
+    "http://127.0.0.1:3000",
+]
+
 from sqlalchemy import text
 from database import engine, Base
 
@@ -56,7 +62,8 @@ Base.metadata.create_all(bind=engine)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
