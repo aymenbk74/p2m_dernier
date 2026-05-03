@@ -33,4 +33,27 @@ test('signup and login', async ({ page }) => {
   
   // 6. Verify successful login
   await page.waitForURL(/\/(profile|admin)/);
+  
+  // 7. Navigate to marketplace
+  await page.goto('/');
+  
+  // 8. Search for clothing
+  await page.fill('input[placeholder*="search" i], input[type="text"]', 'clothing');
+  await page.press('input[placeholder*="search" i], input[type="text"]', 'Enter');
+  await page.waitForTimeout(2000);
+  
+  // 9. Hover over first suggested item
+  const firstProduct = page.locator('[class*="product" i]').first();
+  await firstProduct.hover();
+  
+  // 10. Select a size
+  await page.click('select[name*="size" i], button:has-text("S"), button:has-text("M"), button:has-text("L")');
+  
+  // 11. Add to cart
+  await page.click('button:has-text("ADD TO CART"), button:has-text("AJOUTER"), button:has-text("Ajouter au panier")');
+  await page.waitForTimeout(1500);
+  
+  // 12. Go to cart and verify item was added
+  await page.click('button:has-text("CART"), a:has-text("CART"), [class*="cart" i]');
+  await page.waitForSelector('text=/clothing|item/i', { timeout: 5000 });
 });
