@@ -47,7 +47,7 @@ test('signup and login', async ({ page }) => {
   await firstProduct.hover();
   
   // 10. Select a size
-  await page.click('button:has-text("S"), button:has-text("M"), button:has-text("L")');
+  await page.click('button:has-text("VOIR LES AVIS")');
 
   await page.waitForTimeout(2000);
 
@@ -61,7 +61,7 @@ test('signup and login', async ({ page }) => {
 
   await page.waitForTimeout(2000);
 
-  await page.click('button:has-text("S")');
+  await page.click('[class*="mood-overlay-pro"] span >> text=S');
 
   await page.waitForTimeout(2000);
 
