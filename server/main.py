@@ -60,6 +60,40 @@ with engine.connect() as conn:
 # Create tables
 Base.metadata.create_all(bind=engine)
 
+def init_db_data():
+    """Check if products table is empty and populate from insertion.sql if needed"""
+    with engine.connect() as conn:
+        # Check if products table exists and is empty
+        result = conn.execute(text("SELECT COUNT(*) FROM products"))
+        count = result.scalar()
+        
+        if count == 0:
+            print("Products table is empty. Loading initial data from insertion.sql...")
+            
+            # Read and execute the SQL file
+            sql_file_path = os.path.join(os.path.dirname(__file__), "insertion.sql")
+            
+            if os.path.exists(sql_file_path):
+                with open(sql_file_path, 'r') as f:
+                    sql_commands = f.read()
+                
+                # Execute the SQL commands
+                conn.execute(text(sql_commands))
+                conn.commit()
+                print("Successfully loaded initial data from insertion.sql")
+                
+                # Verify the data was loaded
+                result = conn.execute(text("SELECT COUNT(*) FROM products"))
+                new_count = result.scalar()
+                print(f"Products table now has {new_count} records")
+            else:
+                print(f"WARNING: insertion.sql not found at {sql_file_path}")
+        else:
+            print(f"Products table already has {count} records, skipping initialization")
+
+# Call the initialization function
+init_db_data()
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
