@@ -38,7 +38,7 @@ test('signup and login', async ({ page }) => {
   await page.click('button:has-text("Shop IA")');
   
   // 8. Search for clothing
-  await page.fill('input[placeholder*="search" i], input[type="text"]', 'clothing');
+  await page.fill('input[placeholder*="Échangez avec votre styliste..." i], input[type="text"]', 'clothing');
   await page.press('input[placeholder*="search" i], input[type="text"]', 'Enter');
   await page.waitForTimeout(2000);
   
