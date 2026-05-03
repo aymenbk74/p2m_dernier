@@ -1,7 +1,7 @@
 import { test } from '@playwright/test';
 
 test('signup and login', async ({ page }) => {
-  const email = `test.${Date.now()}@example.com`;
+  const email = `test@example.com`;
   const pwd = 'Password123!';
   
   // 1. Go to the homepage
@@ -47,13 +47,13 @@ test('signup and login', async ({ page }) => {
   await firstProduct.hover();
   
   // 10. Select a size
-  await page.click('select[name*="size" i], button:has-text("S"), button:has-text("M"), button:has-text("L")');
+  await page.click('button:has-text("S"), button:has-text("M"), button:has-text("L")');
   
   // 11. Add to cart
-  await page.click('button:has-text("ADD TO CART"), button:has-text("AJOUTER"), button:has-text("Ajouter au panier")');
-  await page.waitForTimeout(1500);
+  await page.click('button:has-text("AJOUTER AU PANIER")');
+  await page.waitForTimeout(5000);
   
   // 12. Go to cart and verify item was added
-  await page.click('button:has-text("CART"), a:has-text("CART"), [class*="cart" i]');
+  await page.click('div[className="cart-icon-pro"]');
   await page.waitForSelector('text=/clothing|item/i', { timeout: 5000 });
 });
