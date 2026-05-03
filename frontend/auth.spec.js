@@ -23,7 +23,7 @@ test('signup and login', async ({ page }) => {
   await page.click('button:has-text("CONFIRMER L\'ADHÉSION")');
   
   // Wait a moment for the backend to process the signup
-  await page.waitForTimeout(2000);
+  await page.waitForTimeout(5000);
   
   // 5. If it auto-redirects to login, or if you need to click 'LOGIN' first, you might need another click here!
   // Assuming the form is ready:
