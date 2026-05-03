@@ -49,7 +49,12 @@ test('signup and login', async ({ page }) => {
   // 10. Select a size
   await page.click('button:has-text("S"), button:has-text("M"), button:has-text("L")');
 
-  await page.waitForTimeout(5000);
+  await page.waitForTimeout(2000);
+
+  await page.fill('input[placeholder*="Votre expérience avec cette pièce..." i]', 'I love this item!');
+  await page.click('button:has-text("PUBLIER L\'AVIS")');
+
+    await page.waitForTimeout(2000);
   
   // 11. Add to cart
   await page.click('button:has-text("AJOUTER AU PANIER")');
