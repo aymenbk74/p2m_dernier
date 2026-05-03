@@ -5,6 +5,11 @@ pipeline {
         stage('Checkout') {
             steps {
                 checkout scm
+
+                // Debug: Show the complete directory structure
+                sh 'pwd'
+                sh 'find . -name "main.py" -type f'
+                sh 'ls -la server/ || echo "server directory does not exist"'
             }
         }
 
