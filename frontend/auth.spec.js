@@ -59,8 +59,12 @@ test('signup and login', async ({ page }) => {
   await page.click('button:has-text("✕")');
   
 
-    await page.waitForTimeout(2000);
-  
+  await page.waitForTimeout(2000);
+
+  await page.click('button:has-text("S"), button:has-text("M"), button:has-text("L")');
+
+  await page.waitForTimeout(2000);
+
   // 11. Add to cart
   await page.click('button:has-text("AJOUTER AU PANIER")');
   await page.waitForTimeout(5000);
