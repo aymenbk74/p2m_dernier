@@ -39,8 +39,8 @@ test('signup and login', async ({ page }) => {
   
   // 8. Search for clothing
   await page.fill('input[placeholder*="Échangez avec votre styliste..." i], input[type="text"]', 'clothing');
-  await page.press('input[placeholder*="search" i], input[type="text"]', 'Enter');
-  await page.waitForTimeout(2000);
+  await page.click('button:has-text("➜")');
+  await page.waitForTimeout(5000);
   
   // 9. Hover over first suggested item
   const firstProduct = page.locator('[class*="product" i]').first();
