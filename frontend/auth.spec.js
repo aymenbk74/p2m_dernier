@@ -67,7 +67,9 @@ test('signup and login', async ({ page }) => {
 
   // 11. Add to cart
   await page.click('button:has-text("AJOUTER AU PANIER")');
-  await page.waitForTimeout(5000);
+  await page.waitForTimeout(2000);
+
+  await page.click('button:has-text("←")');
   
   // 12. Go to cart and verify item was added
   await page.click('div[className="cart-icon-pro"]');
