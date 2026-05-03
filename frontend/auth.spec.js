@@ -72,6 +72,6 @@ test('signup and login', async ({ page }) => {
   await page.click('button:has-text("←")');
   
   // 12. Go to cart and verify item was added
-  await page.click('div[className="cart-icon-pro"]');
+  await page.click('[class*="cart-icon-pro"]');
   await page.waitForSelector('text=/clothing|item/i', { timeout: 5000 });
 });
