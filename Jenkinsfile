@@ -5,11 +5,6 @@ pipeline {
         stage('Checkout') {
             steps {
                 checkout scm
-
-                // Debug: Show the complete directory structure
-                sh 'pwd'
-                sh 'find . -name "main.py" -type f'
-                sh 'ls -la server/ || echo "server directory does not exist"'
             }
         }
 
@@ -26,16 +21,38 @@ pipeline {
                     sh 'cp $SECRET_ENV server/.env'
                 }
                 
-                // Start ONLY the DB and Backend first
-                sh 'docker-compose up -d db backend frontend'
+                // Start all services including pgAdmin
+                sh 'docker-compose up -d db backend frontend pgadmin'
                 
-                // Wait specifically for the backend to be healthy (requires the healthcheck from my previous message)
-                // If you didn't add the healthcheck, use a slightly longer sleep for now, but healthchecks are best practice!
                 sh 'sleep 20' 
                 
-                // CRITICAL: Print the logs of the backend right before the test runs so you can see if it crashed!
                 sh 'docker-compose logs backend'
                 sh 'docker-compose ps'
+            }
+        }
+
+        stage('Data Inspection - Check pgAdmin') {
+            steps {
+                // Display connection info
+                sh '''
+                    echo "========================================="
+                    echo "pgAdmin is now available!"
+                    echo "URL: http://localhost:5050"
+                    echo "Email: admin@admin.com"
+                    echo "Password: admin"
+                    echo ""
+                    echo "Once logged in, add a server with:"
+                    echo "  - Name: p2m_ecommerce"
+                    echo "  - Host: p2m_db"
+                    echo "  - Port: 5432"
+                    echo "  - Database: p2m_ecommerce"
+                    echo "  - Username: postgres"
+                    echo "  - Password: postgres"
+                    echo "========================================="
+                '''
+                
+                // Pause pipeline - services stay running
+                input message: 'Check pgAdmin at http://localhost:5050. Click "Proceed" when done inspecting.'
             }
         }
 
@@ -44,15 +61,11 @@ pipeline {
                 sh 'sleep 15'
                 sh 'docker-compose ps'
                 
-                // 1. Run the test WITHOUT --rm, give it a specific name, and use '|| true' 
-                // so a test failure doesn't stop the pipeline before we can copy the files!
                 sh 'docker-compose run --name e2e_test_container e2e npx playwright test auth.spec.js || true'
                 
-                // 2. Copy the test results and report from the stopped container back to Jenkins
                 sh 'docker cp e2e_test_container:/app/test-results ./frontend/ || true'
                 sh 'docker cp e2e_test_container:/app/playwright-report ./frontend/ || true'
                 
-                // 3. Now we can safely delete the container
                 sh 'docker rm e2e_test_container || true'
             }
         }
@@ -69,7 +82,6 @@ pipeline {
 
     post {
         always {
-            // Archive both the traces/screenshots and the HTML report
             archiveArtifacts artifacts: 'frontend/test-results/**/*, frontend/playwright-report/**/*', allowEmptyArchive: true
             
             sh 'docker-compose down --volumes || true'

@@ -18,6 +18,17 @@ services:
       timeout: 5s
       retries: 5
 
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: p2m_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      - db
+
   backend:
     build: ./server
     container_name: p2m_backend
@@ -25,8 +36,6 @@ services:
       - "8000:8000"
     env_file:
       - ./server/.env
-    #volumes:
-      #- ./server:/app
     depends_on:
       db:
         condition: service_healthy
@@ -38,24 +47,23 @@ services:
 
   frontend:
     build:
-      context: ./frontend  # (or whatever your context path is)
+      context: ./frontend
       dockerfile: Dockerfile
       args:
-        - VITE_API_BASE_URL=http://backend:8000  # Make sure 'backend' matches your backend service name!
+        - VITE_API_BASE_URL=http://backend:8000
     ports:
       - "3000:3000"
 
-  # NEW SERVICE ADDED HERE
   e2e:
-      build:
-        context: ./frontend
-        dockerfile: Dockerfile.e2e
-      container_name: p2m_playwright
-      depends_on:
-        - frontend
-        - backend
-      environment:
-        - PLAYWRIGHT_BASE_URL=http://frontend:3000
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.e2e
+    container_name: p2m_playwright
+    depends_on:
+      - frontend
+      - backend
+    environment:
+      - PLAYWRIGHT_BASE_URL=http://frontend:3000
 
 volumes:
   postgres_data:
