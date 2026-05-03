@@ -35,7 +35,7 @@ test('signup and login', async ({ page }) => {
   await page.waitForURL(/\/(profile|admin)/);
   
   // 7. Navigate to marketplace
-  await page.goto('/');
+  await page.click('button:has-text("Shop IA")');
   
   // 8. Search for clothing
   await page.fill('input[placeholder*="search" i], input[type="text"]', 'clothing');
