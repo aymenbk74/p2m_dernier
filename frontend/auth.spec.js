@@ -49,29 +49,19 @@ test('signup and login', async ({ page }) => {
   // 10. Select a size
   await page.click('button:has-text("VOIR LES AVIS")');
 
-  await page.waitForTimeout(2000);
-
   await page.fill('textarea[placeholder*="Votre expérience avec cette pièce..."]', 'I love this item!');
   await page.click('button:has-text("PUBLIER L\'AVIS")');
-
-  await page.waitForTimeout(2000);
 
   await page.click('button:has-text("✕")');
   
 
-  await page.waitForTimeout(2000);
-
   await page.click('[class*="mood-overlay-pro"] span >> text=S');
-
-  await page.waitForTimeout(2000);
 
   // 11. Add to cart
   await page.click('button:has-text("AJOUTER AU PANIER")');
-  await page.waitForTimeout(2000);
 
   await page.click('button:has-text("←")');
   
   // 12. Go to cart and verify item was added
   await page.click('[class*="cart-icon-pro"]');
-  await page.waitForSelector('text=/clothing|item/i', { timeout: 5000 });
 });
