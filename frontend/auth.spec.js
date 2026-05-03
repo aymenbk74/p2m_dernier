@@ -51,8 +51,13 @@ test('signup and login', async ({ page }) => {
 
   await page.waitForTimeout(2000);
 
-  await page.fill('textarea[placeholder="Votre expérience avec cette pièce..."]', 'I love this item!');
+  await page.fill('textarea[placeholder*="Votre expérience avec cette pièce..."]', 'I love this item!');
   await page.click('button:has-text("PUBLIER L\'AVIS")');
+
+  await page.waitForTimeout(2000);
+
+  await page.click('button:has-text("✕")');
+  
 
     await page.waitForTimeout(2000);
   
