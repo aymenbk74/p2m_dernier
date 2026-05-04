@@ -22,7 +22,7 @@ pipeline {
                 }
                 
                 // Start all services including pgAdmin
-                sh 'docker-compose up -d db backend frontend pgadmin'
+                sh 'docker-compose up -d db backend frontend'
                 
                 sh 'sleep 20' 
                 
