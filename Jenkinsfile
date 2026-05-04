@@ -31,31 +31,6 @@ pipeline {
             }
         }
 
-        stage('Data Inspection - Check pgAdmin') {
-            steps {
-                // Display connection info
-                sh '''
-                    echo "========================================="
-                    echo "pgAdmin is now available!"
-                    echo "URL: http://localhost:5050"
-                    echo "Email: admin@admin.com"
-                    echo "Password: admin"
-                    echo ""
-                    echo "Once logged in, add a server with:"
-                    echo "  - Name: p2m_ecommerce"
-                    echo "  - Host: p2m_db"
-                    echo "  - Port: 5432"
-                    echo "  - Database: p2m_ecommerce"
-                    echo "  - Username: postgres"
-                    echo "  - Password: postgres"
-                    echo "========================================="
-                '''
-                
-                // Pause pipeline - services stay running
-                input message: 'Check pgAdmin at http://localhost:5050. Click "Proceed" when done inspecting.'
-            }
-        }
-
         stage('E2E Test') {
             steps {
                 sh 'sleep 15'
