@@ -72,8 +72,8 @@ pipeline {
                         sh "${k8sCmd} logs -l tier=backend --tail=50 || true"
                         sh "${k8sCmd} logs -l tier=frontend --tail=50 || true"
                         
-                        sh "${k8sCmd} delete -f k8s/ --ignore-not-found"
-                        sh "${k8sCmd} delete pvc postgres-pvc --ignore-not-found"
+                        //sh "${k8sCmd} delete -f k8s/ --ignore-not-found"
+                        //sh "${k8sCmd} delete pvc postgres-pvc --ignore-not-found"
                     }
                 } catch (e) {
                     echo "Cleanup skip: ${e.message}"
