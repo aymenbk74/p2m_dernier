@@ -23,20 +23,21 @@ pipeline {
 
         stage('Deploy to K8s') {
             steps {
-                // Handle the .env file from Jenkins Credentials
                 withCredentials([file(credentialsId: 'backend-env-file', variable: 'SECRET_ENV')]) {
                     sh 'mkdir -p server && cp $SECRET_ENV server/.env'
                 }
 
-                // We use /root/.kube/config because that is where we mounted your Windows config
-                def k8sCmd = "kubectl --kubeconfig=/root/.kube/config --server=https://kubernetes.docker.internal:6443 --insecure-skip-tls-verify"
+                // Wrapped in script to allow the variable definition
+                script {
+                    def k8sCmd = "kubectl --kubeconfig=/root/.kube/config --server=https://kubernetes.docker.internal:6443 --insecure-skip-tls-verify"
 
-                echo "Applying Kubernetes manifests..."
-                sh "${k8sCmd} apply -f k8s/ --validate=false"
-                
-                echo "Waiting for pods to be ready..."
-                sh "${k8sCmd} wait --for=condition=ready pod -l tier=database --timeout=90s"
-                sh "${k8sCmd} wait --for=condition=ready pod -l tier=backend --timeout=90s"
+                    echo "Applying Kubernetes manifests..."
+                    sh "${k8sCmd} apply -f k8s/ --validate=false"
+                    
+                    echo "Waiting for pods to be ready..."
+                    sh "${k8sCmd} wait --for=condition=ready pod -l tier=database --timeout=90s"
+                    sh "${k8sCmd} wait --for=condition=ready pod -l tier=backend --timeout=90s"
+                }
             }
         }
 
@@ -59,12 +60,14 @@ pipeline {
 
     post {
         always {
-            def k8sCmd = "kubectl --kubeconfig=/root/.kube/config --server=https://kubernetes.docker.internal:6443 --insecure-skip-tls-verify"
-            
-            archiveArtifacts artifacts: 'frontend/test-results/**/*, frontend/playwright-report/**/*', allowEmptyArchive: true
-            
-            sh "${k8sCmd} delete -f k8s/ --ignore-not-found"
-            sh "${k8sCmd} delete pvc postgres-pvc --ignore-not-found"
+            script {
+                def k8sCmd = "kubectl --kubeconfig=/root/.kube/config --server=https://kubernetes.docker.internal:6443 --insecure-skip-tls-verify"
+                
+                archiveArtifacts artifacts: 'frontend/test-results/**/*, frontend/playwright-report/**/*', allowEmptyArchive: true
+                
+                sh "${k8sCmd} delete -f k8s/ --ignore-not-found"
+                sh "${k8sCmd} delete pvc postgres-pvc --ignore-not-found"
+            }
             cleanWs()
         }
     }
