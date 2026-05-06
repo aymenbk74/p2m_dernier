@@ -16,35 +16,34 @@ pipeline {
                 // Build Frontend - passing the URL so the browser knows where to find the API
                 sh 'docker build --build-arg VITE_API_BASE_URL=http://localhost:8000 -t p2m_dernier-frontend:latest ./frontend'
                 
-                // Build E2E image if not already built
+                // Build E2E image
                 sh 'docker build -t p2m_playwright_image -f frontend/Dockerfile.e2e ./frontend'
             }
         }
 
         stage('Deploy to K8s') {
             steps {
-                // This block takes the .env file you uploaded to Jenkins and puts it in the workspace
+                // Handle the .env file from Jenkins Credentials
                 withCredentials([file(credentialsId: 'backend-env-file', variable: 'SECRET_ENV')]) {
                     sh 'mkdir -p server && cp $SECRET_ENV server/.env'
                 }
 
-                // Apply all K8s manifests
-                // --validate=false helps skip the login-redirection error we saw earlier
-                sh 'kubectl apply -f k8s/ --validate=false'
+                // Apply all K8s manifests using the direct host bridge
+                echo "Applying Kubernetes manifests..."
+                sh 'kubectl --server=https://kubernetes.docker.internal:6443 --insecure-skip-tls-verify apply -f k8s/ --validate=false'
                 
                 // Wait for services to be ready
                 echo "Waiting for pods to be ready..."
-                sh 'kubectl wait --for=condition=ready pod -l tier=database --timeout=90s'
-                sh 'kubectl wait --for=condition=ready pod -l tier=backend --timeout=90s'
+                sh 'kubectl --server=https://kubernetes.docker.internal:6443 --insecure-skip-tls-verify wait --for=condition=ready pod -l tier=database --timeout=90s'
+                sh 'kubectl --server=https://kubernetes.docker.internal:6443 --insecure-skip-tls-verify wait --for=condition=ready pod -l tier=backend --timeout=90s'
             }
         }
 
         stage('E2E Test') {
             steps {
-                // Give the frontend an extra moment to settle
                 sh 'sleep 10'
                 
-                // Run Playwright container using host network to see the LoadBalancers on localhost
+                // Run Playwright container using host network to see the LoadBalancers
                 sh '''
                     docker run --network host --name e2e_test_container \
                     -e PLAYWRIGHT_BASE_URL=http://localhost:3000 \
@@ -63,8 +62,8 @@ pipeline {
             archiveArtifacts artifacts: 'frontend/test-results/**/*, frontend/playwright-report/**/*', allowEmptyArchive: true
             
             // Cleanup: Destroy the K8s resources and the volume
-            sh 'kubectl delete -f k8s/ --ignore-not-found'
-            sh 'kubectl delete pvc postgres-pvc --ignore-not-found'
+            sh 'kubectl --server=https://kubernetes.docker.internal:6443 --insecure-skip-tls-verify delete -f k8s/ --ignore-not-found'
+            sh 'kubectl --server=https://kubernetes.docker.internal:6443 --insecure-skip-tls-verify delete pvc postgres-pvc --ignore-not-found'
             cleanWs()
         }
     }
