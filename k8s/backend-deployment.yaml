@@ -20,7 +20,7 @@ spec:
       containers:
       - name: backend
         image: p2m_dernier-backend:latest
-        imagePullPolicy: Never  # Vital for Docker Desktop
+        imagePullPolicy: Never
         ports:
         - containerPort: 8000
         env:
@@ -31,7 +31,7 @@ spec:
         - name: DB_USER
           value: "postgres"
         - name: DB_HOST
-          value: "postgres-service" # Matches metadata.name in postgres-service.yaml
+          value: "postgres-service"
         - name: DB_NAME
           value: "p2m_ecommerce"
         - name: DB_PASSWORD
