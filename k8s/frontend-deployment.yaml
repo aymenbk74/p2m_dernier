@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  labels:
+    app: p2m
+    tier: frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: p2m
+      tier: frontend
+  template:
+    metadata:
+      labels:
+        app: p2m
+        tier: frontend
+    spec:
+      containers:
+      - name: frontend
+        image: p2m_dernier-frontend:latest
+        imagePullPolicy: Never  # Use local image
+        ports:
+        - containerPort: 3000
+        env:
+        - name: VITE_API_BASE_URL
+          value: "http://localhost:8000"  # K8s service DNS
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 3000
+          initialDelaySeconds: 15
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 5

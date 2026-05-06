@@ -1,0 +1,13 @@
+# backend-service.yaml (Updated)
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service
+spec:
+  selector:
+    app: p2m
+    tier: backend
+  ports:
+  - port: 8000
+    targetPort: 8000
+  type: LoadBalancer # Changed from ClusterIP for testing access

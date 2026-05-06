@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  labels:
+    app: p2m
+    tier: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: p2m
+      tier: backend
+  template:
+    metadata:
+      labels:
+        app: p2m
+        tier: backend
+    spec:
+      containers:
+      - name: backend
+        image: p2m_dernier-backend:latest
+        imagePullPolicy: Never  # Use local image from Docker Desktop
+        ports:
+        - containerPort: 8000
+        env:
+        - name: GEMINI_API_KEY
+          value: "AIzaSyBeNg-4JkPN7oQzid9HO-LmOylvYpuXC0Y"
+        - name: STOCK_AGENT_KEY
+          value: "P2M_AGENT_2026"
+        - name: DB_USER
+          value: "postgres"
+        - name: DB_HOST
+          value: "postgres-service"  # K8s service name, not "db"
+        - name: DB_NAME
+          value: "p2m_ecommerce"
+        - name: DB_PASSWORD
+          value: "postgres"
+        - name: DB_PORT
+          value: "5432"
+        livenessProbe:
+          httpGet:
+            path: /docs
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /docs
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 5
