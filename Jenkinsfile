@@ -10,14 +10,18 @@ pipeline {
 
         stage('Build & Deploy') {
             steps {
-                // 1. Force environment variables for the Vite build
                 sh 'echo "VITE_API_BASE_URL=http://host.docker.internal:8000" > frontend/.env'
-                sh 'echo "VITE_API_URL=http://host.docker.internal:8000" >> frontend/.env'
                 
-                // 2. Build images
+                // Manual overwrite of the config file to be 100% sure
+                sh '''
+                    sed -i "s|localhost:8000|host.docker.internal:8000|g" frontend/src/config.js || true
+                '''
+                
                 sh 'docker build -t p2m_dernier-backend:latest ./server'
-                // Use --no-cache to ensure it doesn't use an old 'dist' folder
+                
+                // IMPORTANT: --no-cache is mandatory here to force Vite to re-bundle
                 sh 'docker build --no-cache -t p2m_dernier-frontend:latest ./frontend'
+                
                 sh 'docker build -t p2m_playwright_image -f frontend/Dockerfile.e2e ./frontend'
 
                 withCredentials([
