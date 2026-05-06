@@ -13,7 +13,7 @@ pipeline {
                 // Build Backend
                 sh 'docker build -t p2m_dernier-backend:latest ./server'
                 
-                // Build Frontend - passing the URL so the browser knows where to find the API
+                // Build Frontend
                 sh 'docker build --build-arg VITE_API_BASE_URL=http://localhost:8000 -t p2m_dernier-frontend:latest ./frontend'
                 
                 // Build E2E image
@@ -28,14 +28,15 @@ pipeline {
                     sh 'mkdir -p server && cp $SECRET_ENV server/.env'
                 }
 
-                // Apply all K8s manifests using the direct host bridge
+                // We use /root/.kube/config because that is where we mounted your Windows config
+                def k8sCmd = "kubectl --kubeconfig=/root/.kube/config --server=https://kubernetes.docker.internal:6443 --insecure-skip-tls-verify"
+
                 echo "Applying Kubernetes manifests..."
-                sh 'kubectl --server=https://kubernetes.docker.internal:6443 --insecure-skip-tls-verify apply -f k8s/ --validate=false'
+                sh "${k8sCmd} apply -f k8s/ --validate=false"
                 
-                // Wait for services to be ready
                 echo "Waiting for pods to be ready..."
-                sh 'kubectl --server=https://kubernetes.docker.internal:6443 --insecure-skip-tls-verify wait --for=condition=ready pod -l tier=database --timeout=90s'
-                sh 'kubectl --server=https://kubernetes.docker.internal:6443 --insecure-skip-tls-verify wait --for=condition=ready pod -l tier=backend --timeout=90s'
+                sh "${k8sCmd} wait --for=condition=ready pod -l tier=database --timeout=90s"
+                sh "${k8sCmd} wait --for=condition=ready pod -l tier=backend --timeout=90s"
             }
         }
 
@@ -43,7 +44,6 @@ pipeline {
             steps {
                 sh 'sleep 10'
                 
-                // Run Playwright container using host network to see the LoadBalancers
                 sh '''
                     docker run --network host --name e2e_test_container \
                     -e PLAYWRIGHT_BASE_URL=http://localhost:3000 \
@@ -59,11 +59,12 @@ pipeline {
 
     post {
         always {
+            def k8sCmd = "kubectl --kubeconfig=/root/.kube/config --server=https://kubernetes.docker.internal:6443 --insecure-skip-tls-verify"
+            
             archiveArtifacts artifacts: 'frontend/test-results/**/*, frontend/playwright-report/**/*', allowEmptyArchive: true
             
-            // Cleanup: Destroy the K8s resources and the volume
-            sh 'kubectl --server=https://kubernetes.docker.internal:6443 --insecure-skip-tls-verify delete -f k8s/ --ignore-not-found'
-            sh 'kubectl --server=https://kubernetes.docker.internal:6443 --insecure-skip-tls-verify delete pvc postgres-pvc --ignore-not-found'
+            sh "${k8sCmd} delete -f k8s/ --ignore-not-found"
+            sh "${k8sCmd} delete pvc postgres-pvc --ignore-not-found"
             cleanWs()
         }
     }
