@@ -30,14 +30,10 @@ pipeline {
                         echo "Applying Kubernetes manifests..."
                         sh "${k8sCmd} apply -f k8s/ --validate=false"
                         
-                        echo "Waiting for pods to be ready..."
+                        echo "Waiting for Pods to report READY..."
                         sh "${k8sCmd} wait --for=condition=ready pod -l tier=database --timeout=90s"
                         sh "${k8sCmd} wait --for=condition=ready pod -l tier=backend --timeout=90s"
                         sh "${k8sCmd} wait --for=condition=ready pod -l tier=frontend --timeout=90s"
-                        
-                        // Debugging: Let's see the state of the services
-                        sh "${k8sCmd} get svc"
-                        sh "${k8sCmd} get pods"
                     }
                 }
             }
@@ -45,8 +41,13 @@ pipeline {
 
         stage('E2E Test') {
             steps {
-                echo "Giving LoadBalancer 20 seconds to bind to localhost..."
-                sh 'sleep 20'
+                script {
+                    echo "Checking if Frontend is reachable on localhost:3000..."
+                    // This retries every 2 seconds until the site responds or 30s passes
+                    sh '''
+                        timeout 30s bash -c 'until curl -s localhost:3000 > /dev/null; do echo "Waiting for frontend..."; sleep 2; done'
+                    '''
+                }
                 
                 sh '''
                     docker run --network host --name e2e_test_container \
@@ -68,12 +69,13 @@ pipeline {
                     withCredentials([file(credentialsId: 'kubeconfig-file', variable: 'KUBECONFIG_PATH')]) {
                         def k8sCmd = "kubectl --kubeconfig=${KUBECONFIG_PATH} --server=https://kubernetes.docker.internal:6443 --insecure-skip-tls-verify"
                         
-                        // If test failed, get logs before deleting
+                        // Capture logs for debugging if it fails
                         sh "${k8sCmd} logs -l tier=backend --tail=50 || true"
                         sh "${k8sCmd} logs -l tier=frontend --tail=50 || true"
                         
-                        //sh "${k8sCmd} delete -f k8s/ --ignore-not-found"
-                        //sh "${k8sCmd} delete pvc postgres-pvc --ignore-not-found"
+                        // Uncomment these when you are ready for automatic cleanup
+                        // sh "${k8sCmd} delete -f k8s/ --ignore-not-found"
+                        // sh "${k8sCmd} delete pvc postgres-pvc --ignore-not-found"
                     }
                 } catch (e) {
                     echo "Cleanup skip: ${e.message}"
