@@ -1,7 +1,7 @@
 import { test } from '@playwright/test';
 
 test('signup, login, add item to cart', async ({ page }) => {
-  const email = `test@example.com`;
+  const email = `tst@example.com`;
   const pwd = 'Password123!';
   
   // 1. Go to the homepage
