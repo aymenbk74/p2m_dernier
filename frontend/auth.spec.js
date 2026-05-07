@@ -52,7 +52,8 @@ test('signup, login, add item to cart', async ({ page }) => {
   await page.fill('textarea[placeholder*="Votre expérience avec cette pièce..."]', 'I love this item!');
   await page.click('button:has-text("PUBLIER L\'AVIS")');
 
-  await page.click('button:has-text("✕")');
+  await page.waitForTimeout(500); // Wait for submission to complete
+  await page.keyboard.press('Escape');
   
 
   await page.click('[class*="mood-overlay-pro"] span >> text=S');
