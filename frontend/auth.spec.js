@@ -45,17 +45,6 @@ test('signup, login, add item to cart', async ({ page }) => {
   // 9. Hover over first suggested item
   const firstProduct = page.locator('[class*="product" i]').first();
   await firstProduct.hover();
-  
-  // 10. Select a size
-  //await page.click('button:has-text("VOIR LES AVIS")');
-
-  //await page.fill('textarea[placeholder*="Votre expérience avec cette pièce..."]', 'I love this item!');
-  //await page.click('button:has-text("PUBLIER L\'AVIS")');
-
-  //await page.click('button:has-text("✕")');
-  //await page.waitForTimeout(500); // Wait for submission to complete
-  //await page.keyboard.press('Escape');
-  
 
   await page.click('[class*="mood-overlay-pro"] span >> text=S');
 
