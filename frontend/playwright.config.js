@@ -26,7 +26,7 @@ export default defineConfig({
     /* Base URL to use in actions like `await page.goto('/')`. */
     baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3000',
     screenshot: 'only-on-failure', // <--- Add this!
-    trace: 'retain-on-failure',    // <--- This is also super helpful
+    trace: 'on',    // Generate traces for all tests (including successful ones)
   },
 
   /* Configure projects for major browsers */
