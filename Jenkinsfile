@@ -23,11 +23,15 @@ pipeline {
 
                 withCredentials([
                     file(credentialsId: 'backend-env-file', variable: 'SECRET_ENV'),
-                    file(credentialsId: 'kubeconfig-file', variable: 'KUBECONFIG_PATH')
+                    string(credentialsId: 'K8S_TOKEN', variable: 'K8S_TOKEN')
                 ]) {
-                    sh 'mkdir -p server && cp $SECRET_ENV server/.env'
+                    // Using double quotes inside single quotes ensures bash handles the variable securely
+                    sh 'mkdir -p server && cp "$SECRET_ENV" server/.env'
+                    
                     script {
-                        def k8sCmd = "kubectl --kubeconfig=${KUBECONFIG_PATH} --server=https://kubernetes.docker.internal:6443 --insecure-skip-tls-verify"
+                        // Escaping the $ prevents insecure Groovy interpolation. Bash will handle the token.
+                        def k8sCmd = "kubectl --server=https://kubernetes.docker.internal:6443 --insecure-skip-tls-verify --token=\$K8S_TOKEN"
+                        
                         sh "${k8sCmd} apply -f k8s/ --validate=false"
                         
                         echo "Restarting deployments..."
@@ -64,9 +68,13 @@ pipeline {
     post {
         always {
             archiveArtifacts artifacts: 'frontend/test-results/**/*', allowEmptyArchive: true
-            script {
-                if (env.KUBECONFIG_PATH) {
-                    def k8sCmd = "kubectl --kubeconfig=${KUBECONFIG_PATH} --server=https://kubernetes.docker.internal:6443 --insecure-skip-tls-verify"
+            
+            // Re-inject the token credential so the post-action can successfully fetch logs
+            withCredentials([
+                string(credentialsId: 'K8S_TOKEN', variable: 'K8S_TOKEN')
+            ]) {
+                script {
+                    def k8sCmd = "kubectl --server=https://kubernetes.docker.internal:6443 --insecure-skip-tls-verify --token=\$K8S_TOKEN"
                     echo "--- FINAL BACKEND LOGS ---"
                     sh "${k8sCmd} logs -l tier=backend --tail=50 || true"
                 }
