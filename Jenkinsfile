@@ -58,7 +58,7 @@ pipeline {
                     docker run --name e2e_test_container \
                     -e PLAYWRIGHT_BASE_URL=http://host.docker.internal:3000 \
                     --add-host=host.docker.internal:host-gateway \
-                    p2m_playwright_image npx playwright test auth.spec.js --timeout 90000 || true
+                    p2m_playwright_image npx playwright test auth.spec.js --timeout 90000
                 '''
                 sh 'docker cp e2e_test_container:/app/test-results ./frontend/ || true'
                 sh 'docker rm e2e_test_container || true'
