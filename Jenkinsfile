@@ -30,7 +30,7 @@ pipeline {
                     
                     script {
                         // Escaping the $ prevents insecure Groovy interpolation. Bash will handle the token.
-                        def k8sCmd = "kubectl --server=https://kubernetes.docker.internal:6443 --insecure-skip-tls-verify --token=\$K8S_TOKEN"
+                        def k8sCmd = "kubectl --server=https://host.docker.internal:6443 --insecure-skip-tls-verify --token=\$K8S_TOKEN"
                         
                         sh "${k8sCmd} apply -f k8s/ --validate=false"
                         
