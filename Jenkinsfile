@@ -25,11 +25,9 @@ pipeline {
                     file(credentialsId: 'backend-env-file', variable: 'SECRET_ENV'),
                     string(credentialsId: 'K8S_TOKEN', variable: 'K8S_TOKEN')
                 ]) {
-                    // Using double quotes inside single quotes ensures bash handles the variable securely
                     sh 'mkdir -p server && cp "$SECRET_ENV" server/.env'
                     
                     script {
-                        // Escaping the $ prevents insecure Groovy interpolation. Bash will handle the token.
                         def k8sCmd = "kubectl --server=https://host.docker.internal:6443 --insecure-skip-tls-verify --token=\$K8S_TOKEN"
                         
                         sh "${k8sCmd} apply -f k8s/ --validate=false"
@@ -53,6 +51,8 @@ pipeline {
                     echo "Checking frontend availability..."
                     sh "timeout 60s bash -c 'until curl -s http://host.docker.internal:3000 > /dev/null; do echo \"Waiting...\"; sleep 2; done'"
                 }
+                // Cleanup any leftover container from a previous run
+                sh 'docker rm -f e2e_test_container || true'
                 // Increased timeout to 90s for slower environments
                 sh '''
                     docker run --name e2e_test_container \
@@ -69,7 +69,6 @@ pipeline {
         always {
             archiveArtifacts artifacts: 'frontend/test-results/**/*', allowEmptyArchive: true
             
-            // Re-inject the token credential so the post-action can successfully fetch logs
             withCredentials([
                 string(credentialsId: 'K8S_TOKEN', variable: 'K8S_TOKEN')
             ]) {
