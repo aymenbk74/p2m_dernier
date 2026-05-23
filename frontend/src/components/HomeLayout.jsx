@@ -41,7 +41,7 @@ export const Navbar = ({ userName, onLogout, onContact, onCartToggle, onLoginCli
         {/* Liens principaux */}
         <div className="nav-links-group">
           <button className="nav-btn-pro" onClick={() => navigate('/')}>Home</button>
-          <button className="nav-btn-pro" onClick={() => navigate('/shop')}>Marketplace IA</button>
+          <button className="nav-btn-pro" onClick={() => navigate('/shop')}>Shop IA</button>
           <button className="nav-btn-pro" onClick={onContact}>Contact</button>
         </div>
 
