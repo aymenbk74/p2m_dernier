@@ -74,7 +74,7 @@ pipeline {
                 string(credentialsId: 'K8S_TOKEN', variable: 'K8S_TOKEN')
             ]) {
                 script {
-                    def k8sCmd = "kubectl --server=https://kubernetes.docker.internal:6443 --insecure-skip-tls-verify --token=\$K8S_TOKEN"
+                    def k8sCmd = "kubectl --server=https://host.docker.internal:6443 --insecure-skip-tls-verify --token=\$K8S_TOKEN"
                     echo "--- FINAL BACKEND LOGS ---"
                     sh "${k8sCmd} logs -l tier=backend --tail=50 || true"
                 }
