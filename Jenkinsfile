@@ -59,18 +59,16 @@ pipeline {
     }
     post {
         success {
-            sh """
-                curl -s -X POST http://host.docker.internal:5678/webhook/40eff7bf-0a8a-4902-a69d-46533bfa3fff \
-                -H 'Content-Type: application/json' \
-                -d '{"status": "SUCCESS", "job": "${JOB_NAME}", "build": "${BUILD_NUMBER}", "branch": "${GIT_BRANCH}"}' || true
-            """
+            script {
+                def payload = '{"status": "SUCCESS", "job": "' + env.JOB_NAME + '", "build": "' + env.BUILD_NUMBER + '", "branch": "' + env.GIT_BRANCH + '"}'
+                sh "curl -s -X POST http://host.docker.internal:5678/webhook/40eff7bf-0a8a-4902-a69d-46533bfa3fff -H 'Content-Type: application/json' -d '${payload}' || true"
+            }
         }
         failure {
-            sh """
-                curl -s -X POST http://host.docker.internal:5678/webhook/40eff7bf-0a8a-4902-a69d-46533bfa3fff \
-                -H 'Content-Type: application/json' \
-                -d '{"status": "FAILURE", "job": "${JOB_NAME}", "build": "${BUILD_NUMBER}", "branch": "${GIT_BRANCH}"}' || true
-            """
+            script {
+                def payload = '{"status": "FAILURE", "job": "' + env.JOB_NAME + '", "build": "' + env.BUILD_NUMBER + '", "branch": "' + env.GIT_BRANCH + '"}'
+                sh "curl -s -X POST http://host.docker.internal:5678/webhook/40eff7bf-0a8a-4902-a69d-46533bfa3fff -H 'Content-Type: application/json' -d '${payload}' || true"
+            }
         }
         always {
             archiveArtifacts artifacts: 'frontend/test-results/**/*', allowEmptyArchive: true
