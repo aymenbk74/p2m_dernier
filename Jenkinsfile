@@ -8,17 +8,11 @@ pipeline {
 
         stage('Build & Deploy') {
             steps {
-                // 1. Force environment variables
                 sh 'echo "VITE_API_BASE_URL=http://host.docker.internal:8000" > frontend/.env'
-                
-                // 2. Overwrite any 'localhost' in your config file to ensure no mix-ups
                 sh "sed -i 's|localhost:8000|host.docker.internal:8000|g' frontend/src/config.js || true"
                 
                 sh 'docker build -t p2m_dernier-backend:latest ./server'
-                
-                // 3. IMPORTANT: --no-cache ensures Vite re-bundles with the new URL
                 sh 'docker build --no-cache -t p2m_dernier-frontend:latest ./frontend'
-                
                 sh 'docker build -t p2m_playwright_image -f frontend/Dockerfile.e2e ./frontend'
 
                 withCredentials([
@@ -51,9 +45,7 @@ pipeline {
                     echo "Checking frontend availability..."
                     sh "timeout 60s bash -c 'until curl -s http://host.docker.internal:3000 > /dev/null; do echo \"Waiting...\"; sleep 2; done'"
                 }
-                // Cleanup any leftover container from a previous run
                 sh 'docker rm -f e2e_test_container || true'
-                // Increased timeout to 90s for slower environments
                 sh '''
                     docker run --name e2e_test_container \
                     -e PLAYWRIGHT_BASE_URL=http://host.docker.internal:3000 \
@@ -67,18 +59,18 @@ pipeline {
     }
     post {
         success {
-            sh '''
+            sh """
                 curl -s -X POST http://host.docker.internal:5678/webhook/40eff7bf-0a8a-4902-a69d-46533bfa3fff \
-                -H "Content-Type: application/json" \
-                -d "{\"status\": \"SUCCESS\", \"job\": \"${JOB_NAME}\", \"build\": \"${BUILD_NUMBER}\", \"branch\": \"${GIT_BRANCH}\"}" || true
-            '''
+                -H 'Content-Type: application/json' \
+                -d '{"status": "SUCCESS", "job": "${JOB_NAME}", "build": "${BUILD_NUMBER}", "branch": "${GIT_BRANCH}"}' || true
+            """
         }
         failure {
-            sh '''
+            sh """
                 curl -s -X POST http://host.docker.internal:5678/webhook/40eff7bf-0a8a-4902-a69d-46533bfa3fff \
-                -H "Content-Type: application/json" \
-                -d "{\"status\": \"FAILURE\", \"job\": \"${JOB_NAME}\", \"build\": \"${BUILD_NUMBER}\", \"branch\": \"${GIT_BRANCH}\"}" || true
-            '''
+                -H 'Content-Type: application/json' \
+                -d '{"status": "FAILURE", "job": "${JOB_NAME}", "build": "${BUILD_NUMBER}", "branch": "${GIT_BRANCH}"}' || true
+            """
         }
         always {
             archiveArtifacts artifacts: 'frontend/test-results/**/*', allowEmptyArchive: true
